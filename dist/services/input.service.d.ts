@@ -1,18 +1,11 @@
-import { Page, ElementHandle } from 'puppeteer';
-import { DelayTuple } from '../config/types';
-export interface InputOptions {
-    preTypeDelay?: DelayTuple;
-    postTypeDelay?: DelayTuple;
-    maxAttempts?: number;
-    isPassword?: boolean;
-}
+import { Page } from 'puppeteer';
+import { ButtonOptions } from '../handlers/button.handler';
+import { InputOptions } from '../handlers/input.handler';
+export { ButtonOptions, InputOptions };
 export declare class InputService {
     private page;
     constructor(page: Page);
-    moveMouseNaturally(element: ElementHandle): Promise<void>;
-    private typeNaturally;
-    private verifyInputValue;
-    verifyCheckboxState(selector: string, expectedState?: boolean, timeout?: number): Promise<boolean>;
+    handleButton(selector: string, options?: ButtonOptions): Promise<boolean>;
     handleCheckbox(selector: string, expectedState?: boolean): Promise<boolean>;
     handleInput(selector: string, value: string, options?: InputOptions): Promise<boolean>;
     fillForm(formData: {

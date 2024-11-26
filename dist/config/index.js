@@ -42,8 +42,8 @@ const config = {
             EMAIL_INPUT: 'input#login_username',
             PASSWORD_INPUT: 'input#login_password',
             SECURITY_QUESTION_INPUT: '#login_answer',
-            EMAIL_CONTINUE_BUTTON: 'button#login_password_continue',
-            PASSWORD_CONTINUE_BUTTON: 'button#login_control_continue',
+            LOGIN_PASSWORD_CONTINUE_BUTTON: 'button#login_password_continue', // Clicked after username
+            LOGIN_CONTROL_CONTINUE_BUTTON: 'button#login_control_continue', // Clicked after password
             KEEP_LOGGED_IN_CHECKBOX: 'span[data-test="checkbox-input"]',
             REMEMBER_DEVICE_CHECKBOX: 'span[data-test="checkbox-input"]',
         },

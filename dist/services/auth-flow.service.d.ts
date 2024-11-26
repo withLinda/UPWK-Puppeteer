@@ -2,11 +2,10 @@ import { Page } from 'puppeteer';
 export declare class AuthFlowService {
     private page;
     private inputService;
+    private loginState;
     constructor(page: Page);
-    handleCookieConsent(): Promise<void>;
-    handleSecurityQuestion(securityAnswer: string): Promise<boolean>;
+    private elementExists;
     handleProfileModal(): Promise<void>;
-    handlePopovers(): Promise<void>;
-    performLogin(email: string, password: string, securityAnswer: string): Promise<boolean>;
     attemptStoredLogin(): Promise<boolean>;
+    performLogin(email: string, password: string, securityAnswer: string): Promise<boolean>;
 }

@@ -1,64 +1,67 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StorageError = exports.NavigationError = exports.InputError = exports.AuthenticationError = exports.BrowserError = exports.BaseError = void 0;
+exports.BrowserError = exports.ValidationError = exports.NavigationError = exports.InputError = exports.AuthenticationError = void 0;
 exports.handleError = handleError;
-exports.assertNonNull = assertNonNull;
-class BaseError extends Error {
+const logger_1 = require("./logger");
+class AuthenticationError extends Error {
     constructor(message) {
         super(message);
-        this.name = this.constructor.name;
-        Error.captureStackTrace(this, this.constructor);
-    }
-}
-exports.BaseError = BaseError;
-class BrowserError extends BaseError {
-    constructor(message) {
-        super(`Browser Error: ${message}`);
-    }
-}
-exports.BrowserError = BrowserError;
-class AuthenticationError extends BaseError {
-    constructor(message) {
-        super(`Authentication Error: ${message}`);
+        this.name = 'AuthenticationError';
     }
 }
 exports.AuthenticationError = AuthenticationError;
-class InputError extends BaseError {
+class InputError extends Error {
     constructor(message) {
-        super(`Input Error: ${message}`);
+        super(message);
+        this.name = 'InputError';
     }
 }
 exports.InputError = InputError;
-class NavigationError extends BaseError {
+class NavigationError extends Error {
     constructor(message) {
-        super(`Navigation Error: ${message}`);
+        super(message);
+        this.name = 'NavigationError';
     }
 }
 exports.NavigationError = NavigationError;
-class StorageError extends BaseError {
+class ValidationError extends Error {
     constructor(message) {
-        super(`Storage Error: ${message}`);
+        super(message);
+        this.name = 'ValidationError';
     }
 }
-exports.StorageError = StorageError;
+exports.ValidationError = ValidationError;
+class BrowserError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'BrowserError';
+    }
+}
+exports.BrowserError = BrowserError;
 function handleError(error) {
-    if (error instanceof BaseError) {
-        console.error(`${error.name}: ${error.message}`);
-        console.error('Stack trace:', error.stack);
-        throw error;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (error instanceof AuthenticationError) {
+        logger_1.logger.error(`Authentication Error: ${errorMessage}`);
     }
-    if (error instanceof Error) {
-        console.error('Unhandled Error:', error.message);
-        console.error('Stack trace:', error.stack);
-        throw error;
+    else if (error instanceof InputError) {
+        logger_1.logger.error(`Input Error: ${errorMessage}`);
     }
-    console.error('Unknown error:', error);
-    throw new Error('An unknown error occurred');
-}
-function assertNonNull(value, message) {
-    if (value === null || value === undefined) {
-        throw new Error(message);
+    else if (error instanceof NavigationError) {
+        logger_1.logger.error(`Navigation Error: ${errorMessage}`);
     }
-    return value;
+    else if (error instanceof ValidationError) {
+        logger_1.logger.error(`Validation Error: ${errorMessage}`);
+    }
+    else if (error instanceof BrowserError) {
+        logger_1.logger.error(`Browser Error: ${errorMessage}`);
+    }
+    else {
+        logger_1.logger.error(`Unexpected Error: ${errorMessage}`);
+    }
+    // If error has a stack trace, log it
+    if (error instanceof Error && error.stack) {
+        logger_1.logger.error(`Stack trace: ${error.stack}`);
+    }
+    process.exit(1);
 }
 //# sourceMappingURL=errors.js.map

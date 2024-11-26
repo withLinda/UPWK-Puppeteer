@@ -15,8 +15,8 @@ declare const config: {
             readonly EMAIL_INPUT: "input#login_username";
             readonly PASSWORD_INPUT: "input#login_password";
             readonly SECURITY_QUESTION_INPUT: "#login_answer";
-            readonly EMAIL_CONTINUE_BUTTON: "button#login_password_continue";
-            readonly PASSWORD_CONTINUE_BUTTON: "button#login_control_continue";
+            readonly LOGIN_PASSWORD_CONTINUE_BUTTON: "button#login_password_continue";
+            readonly LOGIN_CONTROL_CONTINUE_BUTTON: "button#login_control_continue";
             readonly KEEP_LOGGED_IN_CHECKBOX: "span[data-test=\"checkbox-input\"]";
             readonly REMEMBER_DEVICE_CHECKBOX: "span[data-test=\"checkbox-input\"]";
         };
@@ -70,8 +70,8 @@ export declare const CHROME_PATH: string, STORAGE_PATHS: {
         readonly EMAIL_INPUT: "input#login_username";
         readonly PASSWORD_INPUT: "input#login_password";
         readonly SECURITY_QUESTION_INPUT: "#login_answer";
-        readonly EMAIL_CONTINUE_BUTTON: "button#login_password_continue";
-        readonly PASSWORD_CONTINUE_BUTTON: "button#login_control_continue";
+        readonly LOGIN_PASSWORD_CONTINUE_BUTTON: "button#login_password_continue";
+        readonly LOGIN_CONTROL_CONTINUE_BUTTON: "button#login_control_continue";
         readonly KEEP_LOGGED_IN_CHECKBOX: "span[data-test=\"checkbox-input\"]";
         readonly REMEMBER_DEVICE_CHECKBOX: "span[data-test=\"checkbox-input\"]";
     };

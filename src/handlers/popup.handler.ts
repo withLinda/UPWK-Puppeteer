@@ -1,112 +1,180 @@
-import { Page, ElementHandle } from 'puppeteer';
-import { delay, randomDelay } from '../utils/delay';
-import { moveMouseInNaturalWay } from '../utils/input';
-
-export async function handleCookieConsent(page: Page): Promise<void> {
-    try {
-        await page.evaluate((): boolean => {
-            const button = document.querySelector<HTMLElement>(
-                "#onetrust-banner-sdk #onetrust-accept-btn-handler"
-            );
-            if (button && button instanceof HTMLElement) {
-                if (window.getComputedStyle(button).display !== "none") {
-                    button.click();
-                    return true;
-                }
-            }
-            return false;
-        });
-
-        await page.waitForFunction(
-            (): boolean => {
-                const banner = document.querySelector("#onetrust-banner-sdk");
-                return !banner || window.getComputedStyle(banner).display === "none";
-            },
-            { timeout: 5000 }
-        );
-    } catch (error) {
-        console.log("Cookie consent handling error (non-critical):", error instanceof Error ? error.message : String(error));
-    }
-}
+import { Page } from 'puppeteer';
+import { InputService } from '../services/input.service';
+import { delay, getRandomDelayFromTuple } from '../utils/delay';
+import { SELECTORS, TIMING } from '../config';
+import { generateUniqueSelector } from './shared/input-utils';
+import { logger } from '../utils/logger';
 
 export async function handlePopovers(page: Page): Promise<void> {
+    const inputService = new InputService(page);
+    const maxAttempts = 3;
+    let attempts = 0;
+    let keepTrying = true;
+
+    logger.info('Starting popover handler');
+
     try {
-        const popoverCloseSelector = "button[data-cy='nav-popover-close-btn']";
-        let keepTrying = true;
-        let attempts = 0;
-        const maxAttempts = 5;
-
         while (keepTrying && attempts < maxAttempts) {
-            try {
-                console.log(`Checking for popovers (attempt ${attempts + 1})...`);
+            attempts++;
 
-                await page.waitForSelector(popoverCloseSelector, {
-                    visible: true,
-                    timeout: 5000,
+            try {
+                const popoverState = await page.evaluate(() => {
+                    const popovers = document.querySelectorAll('[data-cy="nav-popover"]');
+                    return {
+                        count: popovers.length,
+                        visible: Array.from(popovers).filter(p => {
+                            const style = window.getComputedStyle(p);
+                            return style.display !== 'none' &&
+                                style.visibility !== 'hidden' &&
+                                style.opacity !== '0';
+                        }).length
+                    };
                 });
 
-                const closeButtons = await page.$$eval(
-                    popoverCloseSelector,
-                    (buttons: Element[]): number =>
-                        buttons.filter((btn) => {
-                            const style = window.getComputedStyle(btn);
-                            return style.display !== "none" && style.visibility !== "hidden";
-                        }).length
+                logger.info({
+                    attempt: attempts,
+                    popoverState
+                });
+
+                const closeButtonsInfo = await page.$$eval(
+                    SELECTORS.POPOVERS.CLOSE_BUTTON,
+                    (buttons) => buttons.map(btn => {
+                        const style = window.getComputedStyle(btn);
+                        return {
+                            visible: style.display !== 'none' &&
+                                style.visibility !== 'hidden' &&
+                                style.opacity !== '0',
+                            position: btn.getBoundingClientRect(),
+                            disabled: btn.hasAttribute('disabled')
+                        };
+                    })
                 );
 
-                if (closeButtons === 0) {
-                    console.log("No more visible popovers found");
+                logger.info({ closeButtonsInfo });
+
+                const visibleButtons = closeButtonsInfo.filter(btn => btn.visible);
+
+                if (visibleButtons.length === 0) {
                     keepTrying = false;
-                    break;
+                    continue;
                 }
 
-                for (let i = 0; i < closeButtons; i++) {
-                    await page.evaluate(
-                        (selector: string, index: number): void => {
-                            const buttons = Array.from(document.querySelectorAll(selector));
-                            const visibleButtons = buttons.filter((btn) => {
+                // Process each close button
+                for (let i = 0; i < visibleButtons.length; i++) {
+                    logger.info({
+                        processingButton: {
+                            index: i + 1,
+                            total: visibleButtons.length
+                        }
+                    });
+
+                    const buttonSelector = await page.evaluate((index) => {
+                        const buttons = Array.from(document.querySelectorAll('[data-cy="nav-popover-close-btn"]'))
+                            .filter(btn => {
                                 const style = window.getComputedStyle(btn);
-                                return (
-                                    style.display !== "none" && style.visibility !== "hidden"
-                                );
+                                return style.display !== 'none' &&
+                                    style.visibility !== 'hidden' &&
+                                    style.opacity !== '0';
                             });
-                            if (visibleButtons[index]) {
-                                (visibleButtons[index] as HTMLElement).click();
-                            }
-                        },
-                        popoverCloseSelector,
-                        i
-                    );
-                    await delay(randomDelay(500, 1000));
+
+                        if (buttons[index]) {
+                            return generateUniqueSelector(buttons[index]);
+                        }
+                        return null;
+                    }, i);
+
+                    if (buttonSelector) {
+                        try {
+                            await inputService.handleButton(buttonSelector, {
+                                preClickDelay: TIMING.DELAYS.SHORT,
+                                postClickDelay: TIMING.DELAYS.MEDIUM
+                            });
+                        } catch (error) {
+                            logger.error({
+                                buttonError: {
+                                    index: i + 1,
+                                    selector: buttonSelector,
+                                    error: error instanceof Error ? error.message : String(error)
+                                }
+                            });
+                        }
+                    }
                 }
 
-                const gotItSelector = "button.air3-btn.air3-btn-primary";
-                try {
-                    const gotItButton = await page.$(gotItSelector);
-                    if (gotItButton) {
-                        await moveMouseInNaturalWay(page, gotItButton);
-                        await page.click(gotItSelector);
-                        await delay(randomDelay(500, 1000));
-                    }
-                } catch (e) {
-                    console.log("No 'Got it' button found");
+                // Check for "Got it" button
+                const gotItButtonState = await page.evaluate((selector) => {
+                    const button = document.querySelector(selector);
+                    if (!button) return { exists: false };
+
+                    const style = window.getComputedStyle(button);
+                    return {
+                        exists: true,
+                        visible: style.display !== 'none' &&
+                            style.visibility !== 'hidden' &&
+                            style.opacity !== '0',
+                        enabled: !button.hasAttribute('disabled')
+                    };
+                }, SELECTORS.POPOVERS.GOT_IT_BUTTON);
+
+                logger.info({ gotItButtonState });
+
+                if (gotItButtonState.exists && gotItButtonState.visible) {
+                    await inputService.handleButton(SELECTORS.POPOVERS.GOT_IT_BUTTON, {
+                        preClickDelay: TIMING.DELAYS.SHORT,
+                        postClickDelay: TIMING.DELAYS.MEDIUM
+                    });
                 }
+
             } catch (error) {
-                console.log(`No popovers found on attempt ${attempts + 1}`);
+                logger.info({
+                    noPopovers: {
+                        attempt: attempts,
+                        error: error instanceof Error ? error.message : String(error)
+                    }
+                });
                 keepTrying = false;
             }
 
-            attempts++;
-            await delay(randomDelay(1000, 2000));
+            await delay(getRandomDelayFromTuple(TIMING.DELAYS.MEDIUM));
         }
 
-        const remainingPopovers = await page.$$(popoverCloseSelector);
-        if (remainingPopovers.length > 0) {
-            console.log("Warning: Some popovers might still be present");
-        } else {
-            console.log("All popovers successfully handled");
-        }
+        // Final check for remaining popovers
+        const finalState = await page.evaluate((selector) => {
+            const popovers = document.querySelectorAll(selector);
+            return Array.from(popovers).map(p => ({
+                visible: window.getComputedStyle(p).display !== 'none',
+                position: p.getBoundingClientRect(),
+                attributes: Array.from(p.attributes).map(attr => ({
+                    name: attr.name,
+                    value: attr.value
+                }))
+            }));
+        }, '[data-cy="nav-popover"]');
+
+        const remainingVisible = finalState.filter(p => p.visible).length;
+
+        logger.info({
+            finalCheck: {
+                remainingPopovers: remainingVisible,
+                states: finalState
+            }
+        });
+
     } catch (error) {
-        console.log("Error handling popovers:", error instanceof Error ? error.message : String(error));
+        logger.error({
+            popoverError: {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            }
+        });
+
+        const pageState = await page.evaluate(() => ({
+            url: window.location.href,
+            popovers: document.querySelectorAll('[data-cy="nav-popover"]').length,
+            closeButtons: document.querySelectorAll('[data-cy="nav-popover-close-btn"]').length,
+            documentReady: document.readyState
+        }));
+
+        logger.error({ pageState });
     }
 }

@@ -6,45 +6,7 @@ exports.isLoggedIn = isLoggedIn;
 const config_1 = require("../config");
 const storage_service_1 = require("./storage.service");
 const errors_1 = require("../utils/errors");
-async function handleCookieConsent(page) {
-    try {
-        // Check if cookie banner exists
-        const cookieBanner = await page.$(config_1.SELECTORS.COOKIE_CONSENT.BANNER);
-        if (cookieBanner) {
-            console.log("Cookie consent banner detected, accepting cookies...");
-            // Wait for button to be visible and ensure page is fully loaded
-            await page.waitForSelector(config_1.SELECTORS.COOKIE_CONSENT.ACCEPT_BUTTON, {
-                visible: true,
-                timeout: 5000
-            });
-            // Add a small delay to ensure the banner is fully rendered
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            try {
-                // First attempt: Try normal click
-                await page.click(config_1.SELECTORS.COOKIE_CONSENT.ACCEPT_BUTTON);
-            }
-            catch (clickError) {
-                console.log("Normal click failed, trying JavaScript click...");
-                // Second attempt: Try JavaScript click
-                await page.evaluate((selector) => {
-                    const button = document.querySelector(selector);
-                    if (button) {
-                        button.click();
-                    }
-                }, config_1.SELECTORS.COOKIE_CONSENT.ACCEPT_BUTTON);
-            }
-            console.log("Cookies accepted");
-            // Wait for banner to disappear
-            await page.waitForSelector(config_1.SELECTORS.COOKIE_CONSENT.BANNER, {
-                hidden: true,
-                timeout: 5000
-            });
-        }
-    }
-    catch (error) {
-        console.log("Error handling cookie consent:", error instanceof Error ? error.message : String(error));
-    }
-}
+const cookie_consent_handler_1 = require("../handlers/cookie-consent.handler");
 async function saveAuthData(page) {
     try {
         const cookies = await page.cookies();
@@ -126,7 +88,7 @@ async function isLoggedIn(page) {
             timeout: 30000
         });
         // Handle cookie consent banner if present
-        await handleCookieConsent(page);
+        await (0, cookie_consent_handler_1.handleCookieConsent)(page);
         // Check for the two required elements that indicate logged-in state
         const loginVerificationSelectors = [
             '#fwh-sidebar-profile',

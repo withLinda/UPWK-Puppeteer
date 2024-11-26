@@ -1,20 +1,16 @@
-export declare class BaseError extends Error {
+export declare class AuthenticationError extends Error {
     constructor(message: string);
 }
-export declare class BrowserError extends BaseError {
+export declare class InputError extends Error {
     constructor(message: string);
 }
-export declare class AuthenticationError extends BaseError {
+export declare class NavigationError extends Error {
     constructor(message: string);
 }
-export declare class InputError extends BaseError {
+export declare class ValidationError extends Error {
     constructor(message: string);
 }
-export declare class NavigationError extends BaseError {
+export declare class BrowserError extends Error {
     constructor(message: string);
 }
-export declare class StorageError extends BaseError {
-    constructor(message: string);
-}
-export declare function handleError(error: unknown): never;
-export declare function assertNonNull<T>(value: T | null | undefined, message: string): T;
+export declare function handleError(error: unknown): void;

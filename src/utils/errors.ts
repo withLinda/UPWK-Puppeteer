@@ -1,61 +1,61 @@
-export class BaseError extends Error {
+import { logger } from './logger';
+
+export class AuthenticationError extends Error {
     constructor(message: string) {
         super(message);
-        this.name = this.constructor.name;
-        Error.captureStackTrace(this, this.constructor);
+        this.name = 'AuthenticationError';
     }
 }
 
-export class BrowserError extends BaseError {
+export class InputError extends Error {
     constructor(message: string) {
-        super(`Browser Error: ${message}`);
+        super(message);
+        this.name = 'InputError';
     }
 }
 
-export class AuthenticationError extends BaseError {
+export class NavigationError extends Error {
     constructor(message: string) {
-        super(`Authentication Error: ${message}`);
+        super(message);
+        this.name = 'NavigationError';
     }
 }
 
-export class InputError extends BaseError {
+export class ValidationError extends Error {
     constructor(message: string) {
-        super(`Input Error: ${message}`);
+        super(message);
+        this.name = 'ValidationError';
     }
 }
 
-export class NavigationError extends BaseError {
+export class BrowserError extends Error {
     constructor(message: string) {
-        super(`Navigation Error: ${message}`);
+        super(message);
+        this.name = 'BrowserError';
     }
 }
 
-export class StorageError extends BaseError {
-    constructor(message: string) {
-        super(`Storage Error: ${message}`);
-    }
-}
+export function handleError(error: unknown): void {
+    const errorMessage = error instanceof Error ? error.message : String(error);
 
-export function handleError(error: unknown): never {
-    if (error instanceof BaseError) {
-        console.error(`${error.name}: ${error.message}`);
-        console.error('Stack trace:', error.stack);
-        throw error;
-    }
-
-    if (error instanceof Error) {
-        console.error('Unhandled Error:', error.message);
-        console.error('Stack trace:', error.stack);
-        throw error;
+    if (error instanceof AuthenticationError) {
+        logger.error(`Authentication Error: ${errorMessage}`);
+    } else if (error instanceof InputError) {
+        logger.error(`Input Error: ${errorMessage}`);
+    } else if (error instanceof NavigationError) {
+        logger.error(`Navigation Error: ${errorMessage}`);
+    } else if (error instanceof ValidationError) {
+        logger.error(`Validation Error: ${errorMessage}`);
+    } else if (error instanceof BrowserError) {
+        logger.error(`Browser Error: ${errorMessage}`);
+    } else {
+        logger.error(`Unexpected Error: ${errorMessage}`);
     }
 
-    console.error('Unknown error:', error);
-    throw new Error('An unknown error occurred');
-}
-
-export function assertNonNull<T>(value: T | null | undefined, message: string): T {
-    if (value === null || value === undefined) {
-        throw new Error(message);
+    // If error has a stack trace, log it
+    if (error instanceof Error && error.stack) {
+        logger.error(`Stack trace: ${error.stack}`);
     }
-    return value;
+
+    process.exit(1);
 }

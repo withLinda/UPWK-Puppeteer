@@ -1,97 +1,250 @@
 import { Page } from 'puppeteer';
-import { delay, getRandomDelayFromTuple } from '../utils/delay';
-import { TIMING, SELECTORS } from '../config';
 import { InputService } from '../services/input.service';
+import { delay, getRandomDelayFromTuple } from '../utils/delay';
+import { SELECTORS, TIMING } from '../config';
+import { logger } from '../utils/logger';
+
+export async function handleProfileCompletionModal(page: Page): Promise<void> {
+    const inputService = new InputService(page);
+
+    try {
+        logger.info('Starting profile completion modal handler');
+
+        const modalState = await page.evaluate((selector) => {
+            const modal = document.querySelector(selector);
+            if (!modal) return { exists: false };
+
+            const style = window.getComputedStyle(modal);
+            return {
+                exists: true,
+                visible: style.display !== 'none' &&
+                    style.visibility !== 'hidden' &&
+                    style.opacity !== '0',
+                position: modal.getBoundingClientRect(),
+                styles: {
+                    display: style.display,
+                    visibility: style.visibility,
+                    opacity: style.opacity,
+                    zIndex: style.zIndex
+                }
+            };
+        }, SELECTORS.MODALS.PROFILE_MODAL);
+
+        logger.info({ modalState });
+
+        await page.waitForSelector(SELECTORS.MODALS.PROFILE_MODAL, {
+            visible: true,
+            timeout: 5000
+        });
+
+        // Try each close button selector
+        for (const selector of SELECTORS.MODALS.CLOSE_BUTTONS) {
+            try {
+                const buttonState = await page.evaluate((sel) => {
+                    const button = document.querySelector(sel);
+                    if (!button) return { exists: false };
+
+                    const style = window.getComputedStyle(button);
+                    return {
+                        exists: true,
+                        visible: style.display !== 'none' &&
+                            style.visibility !== 'hidden' &&
+                            style.opacity !== '0',
+                        enabled: !button.hasAttribute('disabled'),
+                        position: button.getBoundingClientRect()
+                    };
+                }, selector);
+
+                logger.info({
+                    closeButton: {
+                        selector,
+                        state: buttonState
+                    }
+                });
+
+                if (buttonState.exists && buttonState.visible) {
+                    await inputService.handleButton(selector, {
+                        preClickDelay: TIMING.DELAYS.SHORT,
+                        postClickDelay: TIMING.DELAYS.MEDIUM
+                    });
+
+                    // Verify modal closure
+                    const modalStillVisible = await page.evaluate((modalSel: string): boolean => {
+                        const modal = document.querySelector(modalSel);
+                        if (!modal) return false;
+                        const style = window.getComputedStyle(modal);
+                        return style.display !== 'none' &&
+                            style.visibility !== 'hidden' &&
+                            style.opacity !== '0';
+                    }, SELECTORS.MODALS.PROFILE_MODAL);
+
+                    logger.info({ modalStillVisible });
+
+                    if (!modalStillVisible) {
+                        break;
+                    }
+                }
+            } catch (err) {
+                logger.warn({
+                    closeButtonError: {
+                        selector,
+                        error: err instanceof Error ? err.message : String(err)
+                    }
+                });
+            }
+        }
+
+    } catch (error) {
+        logger.error({
+            modalError: {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            }
+        });
+
+        const pageState = await page.evaluate(() => ({
+            url: window.location.href,
+            modalExists: !!document.querySelector(SELECTORS.MODALS.PROFILE_MODAL),
+            closeButtonsCount: SELECTORS.MODALS.CLOSE_BUTTONS.map(
+                sel => document.querySelectorAll(sel).length
+            ),
+            documentReady: document.readyState,
+            visibleModals: Array.from(document.querySelectorAll('div[role="dialog"]')).map(modal => ({
+                visible: window.getComputedStyle(modal).display !== 'none',
+                classes: Array.from(modal.classList)
+            }))
+        }));
+
+        logger.error({ pageState });
+    }
+}
 
 export async function handleSecurityQuestionModal(
     page: Page,
     securityAnswer: string
 ): Promise<boolean> {
-    try {
-        const inputService = new InputService(page);
+    const inputService = new InputService(page);
 
-        await page.waitForSelector(SELECTORS.LOGIN.SECURITY_QUESTION_INPUT, {
-            visible: true,
-            timeout: TIMING.ELEMENT_WAIT_TIMEOUT,
+    try {
+        logger.info('Starting security question modal handler');
+
+        const modalState = await page.evaluate(() => {
+            const modal = document.querySelector('div[role="dialog"]');
+            if (!modal) return { exists: false };
+
+            const style = window.getComputedStyle(modal);
+            return {
+                exists: true,
+                visible: style.display !== 'none' &&
+                    style.visibility !== 'hidden' &&
+                    style.opacity !== '0',
+                position: modal.getBoundingClientRect(),
+                styles: {
+                    display: style.display,
+                    visibility: style.visibility,
+                    opacity: style.opacity,
+                    zIndex: style.zIndex
+                }
+            };
         });
 
-        console.log("Security question detected");
+        logger.info({ modalState });
+
+        const questionInput = await page.waitForSelector(SELECTORS.LOGIN.SECURITY_QUESTION_INPUT, {
+            visible: true,
+            timeout: 5000
+        });
+
+        if (!questionInput) {
+            logger.info('Security question input not found');
+            return false;
+        }
+
+        // Get question text if available
+        const questionText = await page.evaluate(() => {
+            const label = document.querySelector('label[for="login_answer"]');
+            return label ? label.textContent?.trim() : null;
+        });
+
+        if (questionText) {
+            logger.info({ questionText });
+        }
 
         await inputService.handleInput(SELECTORS.LOGIN.SECURITY_QUESTION_INPUT, securityAnswer, {
             isPassword: false,
             preTypeDelay: TIMING.DELAYS.MEDIUM,
-            postTypeDelay: TIMING.DELAYS.MEDIUM,
+            postTypeDelay: TIMING.DELAYS.MEDIUM
         });
 
+        // Handle "Keep me logged in" checkbox
         try {
-            const keepLoggedInCheckbox = await page.$(SELECTORS.LOGIN.KEEP_LOGGED_IN_CHECKBOX);
-            if (keepLoggedInCheckbox) {
-                await inputService.moveMouseNaturally(keepLoggedInCheckbox);
-                await page.click(SELECTORS.LOGIN.KEEP_LOGGED_IN_CHECKBOX);
-                await delay(getRandomDelayFromTuple(TIMING.DELAYS.SHORT));
+            const checkboxState = await page.evaluate(() => {
+                const checkbox = document.querySelector(SELECTORS.LOGIN.KEEP_LOGGED_IN_CHECKBOX);
+                if (!checkbox) return { exists: false };
+
+                const style = window.getComputedStyle(checkbox);
+                return {
+                    exists: true,
+                    visible: style.display !== 'none' &&
+                        style.visibility !== 'hidden',
+                    checked: checkbox.classList.contains('checked')
+                };
+            });
+
+            logger.info({ checkboxState });
+
+            if (checkboxState.exists) {
+                await inputService.handleCheckbox(SELECTORS.LOGIN.KEEP_LOGGED_IN_CHECKBOX, true);
             }
         } catch (error) {
-            console.log("Could not find or interact with 'Keep me logged in' checkbox");
+            logger.warn({
+                checkboxError: error instanceof Error ? error.message : String(error)
+            });
         }
 
-        const continueButton = await page.$(SELECTORS.LOGIN.PASSWORD_CONTINUE_BUTTON);
-        if (continueButton) {
-            await inputService.moveMouseNaturally(continueButton);
-            await page.click(SELECTORS.LOGIN.PASSWORD_CONTINUE_BUTTON);
-            await delay(getRandomDelayFromTuple(TIMING.DELAYS.LONG));
-        }
+        // Handle continue button
+        const buttonState = await page.evaluate((selector) => {
+            const button = document.querySelector(selector);
+            if (!button) return { exists: false };
+
+            const style = window.getComputedStyle(button);
+            return {
+                exists: true,
+                enabled: !button.hasAttribute('disabled'),
+                visible: style.display !== 'none' &&
+                    style.visibility !== 'hidden'
+            };
+        }, SELECTORS.LOGIN.LOGIN_PASSWORD_CONTINUE_BUTTON);
+
+        logger.info({ buttonState });
+
+        await inputService.handleButton(SELECTORS.LOGIN.LOGIN_PASSWORD_CONTINUE_BUTTON, {
+            preClickDelay: TIMING.DELAYS.SHORT,
+            postClickDelay: TIMING.DELAYS.LONG,
+            waitForNavigation: true
+        });
 
         return true;
     } catch (error) {
-        console.log(
-            "No security question present or error handling it:",
-            error instanceof Error ? error.message : String(error)
-        );
-        return false;
-    }
-}
-
-export async function handleProfileCompletionModal(page: Page): Promise<void> {
-    try {
-        console.log("Checking for profile completion modal...");
-
-        await page.waitForSelector(SELECTORS.MODALS.PROFILE_MODAL, {
-            visible: true,
-            timeout: TIMING.ELEMENT_WAIT_TIMEOUT,
+        logger.error({
+            modalError: {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            }
         });
 
-        const inputService = new InputService(page);
+        const pageState = await page.evaluate(() => ({
+            url: window.location.href,
+            questionInputExists: !!document.querySelector(SELECTORS.LOGIN.SECURITY_QUESTION_INPUT),
+            continueButtonExists: !!document.querySelector(SELECTORS.LOGIN.LOGIN_PASSWORD_CONTINUE_BUTTON),
+            documentReady: document.readyState,
+            visibleModals: Array.from(document.querySelectorAll('div[role="dialog"]')).map(modal => ({
+                visible: window.getComputedStyle(modal).display !== 'none',
+                classes: Array.from(modal.classList)
+            }))
+        }));
 
-        for (const selector of SELECTORS.MODALS.CLOSE_BUTTONS) {
-            try {
-                const closeButton = await page.$(selector);
-                if (closeButton) {
-                    console.log(`Found close button with selector: ${selector}`);
-                    await inputService.moveMouseNaturally(closeButton);
-                    await page.click(selector);
-                    await delay(getRandomDelayFromTuple(TIMING.DELAYS.MEDIUM));
-
-                    const modalStillVisible = await page.evaluate((modalSel: string): boolean => {
-                        const modal = document.querySelector(modalSel);
-                        return modal ? window.getComputedStyle(modal).display !== "none" : false;
-                    }, SELECTORS.MODALS.PROFILE_MODAL);
-
-                    if (!modalStillVisible) {
-                        console.log("Successfully closed profile completion modal");
-                        break;
-                    }
-                }
-            } catch (err) {
-                console.log(
-                    `Failed to close modal with selector ${selector}:`,
-                    err instanceof Error ? err.message : String(err)
-                );
-            }
-        }
-    } catch (error) {
-        console.log(
-            "No profile completion modal found or error closing it:",
-            error instanceof Error ? error.message : String(error)
-        );
+        logger.error({ pageState });
+        return false;
     }
 }
