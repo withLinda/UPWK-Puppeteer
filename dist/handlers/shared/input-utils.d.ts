@@ -11,37 +11,3 @@ export declare function typeNaturally(page: Page, text: string, isPassword?: boo
  * Generates a unique selector for an element
  */
 export declare function generateUniqueSelector(element: Element): string | null;
-/**
- * Checks if an element is visible and interactable
- */
-export declare function isElementInteractable(element: Element): boolean;
-/**
- * Gets detailed state information about an element
- */
-export declare function getElementState(element: Element): {
-    tagName: string;
-    id: string;
-    classes: string[];
-    attributes: {
-        name: string;
-        value: string;
-    }[];
-    position: {
-        top: number;
-        left: number;
-        width: number;
-        height: number;
-    };
-    styles: {
-        display: string;
-        visibility: string;
-        opacity: string;
-        pointerEvents: string;
-        zIndex: string;
-    };
-    state: {
-        isVisible: boolean;
-        isInteractable: boolean;
-        hasSize: boolean;
-    };
-};

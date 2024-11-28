@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import type { BrowserConfig } from './types';
+import { URLS } from './sensitive/urls';
 
 dotenv.config();
 
@@ -30,12 +31,6 @@ const config = {
             '--disable-setuid-sandbox',
         ],
     } as BrowserConfig,
-
-    // URLs
-    URLS: {
-        LOGIN: 'https://www.upwork.com/ab/account-security/login',
-        DASHBOARD: 'https://www.upwork.com/nx/find-work/best-matches',
-    } as const,
 
     // Selectors
     SELECTORS: {
@@ -102,11 +97,11 @@ export const {
     CHROME_PATH,
     STORAGE_PATHS,
     BROWSER_CONFIG,
-    URLS,
     SELECTORS,
     TIMING,
     CRITICAL_COOKIES,
     INPUT_CONFIG,
 } = config;
 
+export { URLS };
 export default config;

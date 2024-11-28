@@ -3,8 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.moveMouseNaturally = moveMouseNaturally;
 exports.typeNaturally = typeNaturally;
 exports.generateUniqueSelector = generateUniqueSelector;
-exports.isElementInteractable = isElementInteractable;
-exports.getElementState = getElementState;
 const delay_1 = require("../../utils/delay");
 const config_1 = require("../../config");
 const logger_1 = require("../../utils/logger");
@@ -90,55 +88,5 @@ function generateUniqueSelector(element) {
         }
     }
     return null;
-}
-/**
- * Checks if an element is visible and interactable
- */
-function isElementInteractable(element) {
-    const style = window.getComputedStyle(element);
-    const rect = element.getBoundingClientRect();
-    return (style.display !== 'none' &&
-        style.visibility !== 'hidden' &&
-        style.opacity !== '0' &&
-        style.pointerEvents !== 'none' &&
-        rect.width > 0 &&
-        rect.height > 0);
-}
-/**
- * Gets detailed state information about an element
- */
-function getElementState(element) {
-    const rect = element.getBoundingClientRect();
-    const style = window.getComputedStyle(element);
-    const attributes = Array.from(element.attributes).map(attr => ({
-        name: attr.name,
-        value: attr.value
-    }));
-    return {
-        tagName: element.tagName.toLowerCase(),
-        id: element.id,
-        classes: Array.from(element.classList),
-        attributes,
-        position: {
-            top: rect.top,
-            left: rect.left,
-            width: rect.width,
-            height: rect.height
-        },
-        styles: {
-            display: style.display,
-            visibility: style.visibility,
-            opacity: style.opacity,
-            pointerEvents: style.pointerEvents,
-            zIndex: style.zIndex
-        },
-        state: {
-            isVisible: style.display !== 'none' &&
-                style.visibility !== 'hidden' &&
-                style.opacity !== '0',
-            isInteractable: style.pointerEvents !== 'none',
-            hasSize: rect.width > 0 && rect.height > 0
-        }
-    };
 }
 //# sourceMappingURL=input-utils.js.map
